@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBLITERATOR GENESIS - Data Destruction Platform</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>⚡ OBLITERATOR GENESIS</h1>
+                <p>Professional Data Destruction & Secure Erasure Platform</p>
+            </div>
+            <div class="system-status" id="systemStatus">
+                <span class="status-indicator"></span>
+                <span id="statusText">Initializing...</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Control Panel -->
+            <section class="panel control-panel">
+                <h2>Device Management</h2>
+                <div class="control-buttons">
+                    <button id="refreshBtn" class="btn btn-primary" onclick="discoverDevices()">
+                        <span class="icon">🔄</span> Scan Devices
+                    </button>
+                    <button class="btn btn-secondary" onclick="toggleSimulationMode()">
+                        <span class="icon">🎯</span> <span id="simModeText">Simulation: ON</span>
+                    </button>
+                    <button class="btn btn-info" onclick="openCertificates()">
+                        <span class="icon">📜</span> View Certificates
+                    </button>
+                </div>
+                <div id="loadingIndicator" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Scanning for devices...</p>
+                </div>
+            </section>
+
+            <!-- Device List -->
+            <section class="panel devices-panel">
+                <h2>Storage Devices</h2>
+                <div id="devicesList" class="devices-list">
+                    <div class="empty-state">
+                        <p>🔍 No devices detected. Click "Scan Devices" to refresh.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Operation Log -->
+            <section class="panel log-panel">
+                <h2>Operation Log</h2>
+                <div id="logContent" class="log-content">
+                    <p class="log-entry log-info">System initialized. Ready to scan devices.</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>OBLITERATOR GENESIS v0.2.0 | Professional-Grade Data Destruction</p>
+            <p>Certificates stored in: <code>./certificates/</code> | Secure Signing: RSA-2048</p>
+        </footer>
+    </div>
+
+    <!-- Modal for Device Details -->
+    <div id="deviceModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeDeviceModal()">&times;</span>
+            <h2 id="modalDeviceName"></h2>
+            <div id="modalDeviceDetails"></div>
+            <div class="modal-actions">
+                <button class="btn btn-warning" onclick="performWipe()">
+                    <span class="icon">🗑️</span> Perform Erasure
+                </button>
+                <button class="btn btn-secondary" onclick="closeDeviceModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Confirmation -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content modal-warning">
+            <h2>⚠️ Confirm Erasure Operation</h2>
+            <div id="confirmMessage"></div>
+            <div class="modal-actions">
+                <button class="btn btn-danger" onclick="confirmWipe()">Proceed with Erasure</button>
+                <button class="btn btn-secondary" onclick="closeConfirmModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+nohup: ignoring input
+   Compiling obliterator-discovery v0.2.0 (/home/apsit/OBLITERATOR_GENESIS)
+warning: variant `Unknown` is never constructed
+  --> src/device_discovery.rs:11:5
+   |
+ 7 | pub enum BusType {
+   |          ------- variant in this enum
+...
+11 |     Unknown,
+   |     ^^^^^^^
+   |
+   = note: `BusType` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `obliterator-discovery` (bin "obliterator-cli") generated 1 warning
+    Finished `release` profile [optimized] target(s) in 1.16s
+     Running `target/release/obliterator-cli`
+--- DEVICE DEBUG ---
+name        : sda
+label       : None
+sysfs       : /sys/block/sda
+bus         : Usb
+erase_cap   : OverwriteOnly
+Overwrite wipe requested for device sda (simulate: true)
+Simulating overwrite for /dev/sda
+Signature saved: /home/apsit/OBLITERATOR_GENESIS/certificates/signatures/payload_eefed699d3ce1d16.sig
+Wipe certificate saved: /home/apsit/OBLITERATOR_GENESIS/certificates/archives/wipe_certificate_sda_2026-02-20T10-16-03.834751932-00-00.json
+Certificate HTML: /home/apsit/OBLITERATOR_GENESIS/certificates/archives/wipe_certificate_sda_2026-02-20T10-16-03.834751932-00-00.html, PDF: /home/apsit/OBLITERATOR_GENESIS/certificates/archives/wipe_certificate_sda_2026-02-20T10-16-03.834751932-00-00.pdf
+--- DEVICE DEBUG ---
+name        : nvme0n1
+label       : Some("SYSTEM")
+sysfs       : /sys/block/nvme0n1
+bus         : Nvme
+erase_cap   : Unsupported
+No wipe plan available for device: nvme0n1
+{
+  "tool": "obliterator-genesis",
+  "version": "0.2.0",
+  "devices": [
+    {
+      "name": "sda",
+      "label": null,
+      "size_bytes": 0,
+      "dev_type": "disk",
+      "mountpoint": null,
+      "sysfs_path": "/sys/block/sda",
+      "bus": "Usb",
+      "erase_capability": "OverwriteOnly"
+    },
+    {
+      "name": "nvme0n1",
+      "label": "SYSTEM",
+      "size_bytes": 512110190592,
+      "dev_type": "disk",
+      "mountpoint": null,
+      "sysfs_path": "/sys/block/nvme0n1",
+      "bus": "Nvme",
+      "erase_capability": "Unsupported"
+    }
+  ]
+}
