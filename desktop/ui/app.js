@@ -1,7 +1,9 @@
 // OBLITERATOR GENESIS Desktop Application
 // Professional Data Destruction Platform
 
-const API_BASE = 'http://127.0.0.1:3030';
+// Use the same host the page was served from so requests reach the backend
+// correctly when the UI is served from another local port or host.
+const API_BASE = `${location.protocol}//${location.hostname}:3030`;
 let simulationMode = true;
 let selectedDevice = null;
 let devices = [];

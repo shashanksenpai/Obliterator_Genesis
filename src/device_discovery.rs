@@ -8,7 +8,7 @@ pub enum BusType {
     Nvme,
     Sata,
     Usb,
-    Unknown,
+   
 }
 
 #[derive(Serialize, Debug, Copy, Clone)]
@@ -71,45 +71,148 @@ fn bool_from_sysfs(path: &str) -> Option<bool> {
 }
 
 fn nvme_supports_format(dev: &str) -> bool {
-    let out = Command::new("nvme").args(["id-ctrl", dev]).output();
-    if let Ok(output) = out {
+    // First try running nvme id-ctrl directly
+    let try_parse = |output: &std::process::Output| -> Option<bool> {
         if output.status.success() {
             let text = String::from_utf8_lossy(&output.stdout);
             for line in text.lines() {
                 if line.trim_start().starts_with("oacs") {
                     if let Some(hex) = line.split("0x").nth(1) {
                         if let Ok(val) = u32::from_str_radix(hex.trim(), 16) {
-                            return (val & 0x2) != 0; // format supported
+                            return Some((val & 0x2) != 0);
                         }
                     }
                 }
             }
+            return Some(false);
+        }
+        None
+    };
+
+    match Command::new("nvme").args(["id-ctrl", dev]).output() {
+        Ok(output) => {
+            if let Some(res) = try_parse(&output) {
+                return res;
+            }
+            // If it failed (permission denied or other), fall through to try sudo
+            eprintln!("nvme id-ctrl returned non-success for {}: {}", dev, String::from_utf8_lossy(&output.stderr));
+        }
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                eprintln!("nvme CLI not found: install 'nvme-cli' to enable NVMe format detection");
+                return false;
+            } else {
+                eprintln!("failed to execute nvme id-ctrl: {}", e);
+            }
         }
     }
+
+    // Retry with sudo -n (non-interactive) to avoid hanging for password prompts
+    match Command::new("sudo").args(["-n", "nvme", "id-ctrl", dev]).output() {
+        Ok(output) => {
+            if let Some(res) = try_parse(&output) {
+                return res;
+            }
+            let stderr = String::from_utf8_lossy(&output.stderr).to_lowercase();
+            if stderr.contains("a password is required") || stderr.contains("password") {
+                eprintln!("nvme id-ctrl requires sudo password for {}. Prompting for password...", dev);
+                // Run interactive sudo: inherit stdin so the user can type the password, capture stdout for parsing,
+                // and inherit stderr so the password prompt is visible.
+                match Command::new("sudo").args(["nvme", "id-ctrl", dev])
+                    .stdin(std::process::Stdio::inherit())
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::inherit())
+                    .output()
+                {
+                    Ok(out2) => {
+                        if let Some(res2) = try_parse(&out2) {
+                            return res2;
+                        }
+                        eprintln!("interactive sudo nvme id-ctrl failed for {}", dev);
+                    }
+                    Err(e) => eprintln!("failed to execute interactive sudo nvme id-ctrl: {}", e),
+                }
+            } else {
+                eprintln!("sudo nvme id-ctrl failed for {}: {}", dev, String::from_utf8_lossy(&output.stderr));
+            }
+        }
+        Err(e) => {
+            eprintln!("failed to execute sudo nvme id-ctrl: {}", e);
+        }
+    }
+
     false
 }
 
 fn sata_supports_secure_erase(dev: &str) -> bool {
     // Check if the device supports ATA Secure Erase via hdparm
     // hdparm -I /dev/sdX returns device info; check for security feature
-    let output = Command::new("sudo")
-        .args(&["hdparm", "-I", dev])
-        .output();
-    
-    if let Ok(out) = output {
+    // Call hdparm directly; do not force `sudo` here so the caller can
+    // decide to run the process with appropriate privileges. Using `sudo`
+    // inside library code can prompt for a password and hang the program.
+    let try_parse = |out: &std::process::Output| -> Option<bool> {
         if out.status.success() {
             let text = String::from_utf8_lossy(&out.stdout);
-            // Look for security-related lines
             for line in text.lines() {
                 if line.contains("Security") && line.contains("enabled") {
-                    return true;
+                    return Some(true);
                 }
                 if line.trim_start().starts_with("Secure erase unit time") {
-                    return true;
+                    return Some(true);
                 }
+            }
+            return Some(false);
+        }
+        None
+    };
+
+    match Command::new("hdparm").args(&["-I", dev]).output() {
+        Ok(out) => {
+            if let Some(res) = try_parse(&out) {
+                return res;
+            }
+            eprintln!("hdparm -I returned non-success for {}: {}", dev, String::from_utf8_lossy(&out.stderr));
+        }
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                eprintln!("hdparm not found: install 'hdparm' or run discovery with sufficient privileges");
+                return false;
+            } else {
+                eprintln!("failed to execute hdparm -I: {}", e);
             }
         }
     }
+
+    // Retry with sudo -n (non-interactive)
+    match Command::new("sudo").args(&["-n", "hdparm", "-I", dev]).output() {
+        Ok(out) => {
+            if let Some(res) = try_parse(&out) {
+                return res;
+            }
+            let stderr = String::from_utf8_lossy(&out.stderr).to_lowercase();
+            if stderr.contains("a password is required") || stderr.contains("password") {
+                eprintln!("hdparm -I requires sudo password for {}. Prompting for password...", dev);
+                match Command::new("sudo").args(&["hdparm", "-I", dev])
+                    .stdin(std::process::Stdio::inherit())
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::inherit())
+                    .output()
+                {
+                    Ok(out2) => {
+                        if let Some(res2) = try_parse(&out2) {
+                            return res2;
+                        }
+                        eprintln!("interactive sudo hdparm -I failed for {}", dev);
+                    }
+                    Err(e) => eprintln!("failed to execute interactive sudo hdparm -I: {}", e),
+                }
+            } else {
+                eprintln!("sudo hdparm -I failed for {}: {}", dev, String::from_utf8_lossy(&out.stderr));
+            }
+        }
+        Err(e) => eprintln!("failed to execute sudo hdparm -I: {}", e),
+    }
+
     false
 }
 
@@ -167,7 +270,7 @@ pub async fn discover_all_devices() -> Result<DiscoveryReport, Box<dyn Error>> {
                 }
             }
             BusType::Usb => EraseCapability::OverwriteOnly,
-            BusType::Unknown => EraseCapability::Unsupported,
+            
         };
 
         // Enhanced label detection: check device label first, then children partitions

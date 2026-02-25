@@ -1,5 +1,8 @@
 use warp::Filter;
+use warp::http::Method;
 use serde::{Serialize, Deserialize};
+use obliterator_discovery::device_discovery::discover_all_devices;
+use obliterator_discovery::DiscoveryReport;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct HealthResponse {
@@ -55,26 +58,48 @@ async fn main() {
             })
         });
 
-    // Device discovery endpoint - simplified for Warp compatibility
+    // Device discovery endpoints
+    // Lightweight hint endpoint
     let discover = warp::path!("api" / "discover")
         .and(warp::get())
         .map(|| {
-            // For now, return empty device list - GUI can call /api/discover/scan
             warp::reply::json(&serde_json::json!({
                 "success": true,
                 "devices": [],
-                "message": "Use /api/discover/scan to scan for devices"
+                "message": "Call /api/discover/scan to run a full discovery"
             }))
         });
 
-    let routes = health.or(status).or(discover);
+    // Endpoint that triggers a full discovery scan and returns results
+    let discover_scan = warp::path!("api" / "discover" / "scan")
+        .and(warp::get())
+        .and_then(|| async move {
+            match discover_all_devices().await {
+                Ok(report) => Ok::<_, warp::Rejection>(warp::reply::json(&report)),
+                Err(e) => Ok(warp::reply::json(&serde_json::json!({
+                    "success": false,
+                    "error": format!("Discovery failed: {}", e)
+                })))
+            }
+        });
+
+    let routes = health.or(status).or(discover).or(discover_scan);
+
+    // Allow CORS so the UI (served on a different local port) can call the API
+    let cors = warp::cors()
+        .allow_any_origin()
+        .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS])
+        .allow_headers(vec!["content-type"])
+        .build();
+
+    let routes = routes.with(cors);
 
     println!("====================================");
     println!("OBLITERATOR GENESIS v0.2.0");
     println!("Desktop Application Backend");
     println!("====================================");
     println!();
-    println!("Backend API: http://127.0.0.1:3030");
+    println!("Backend API: http://127.0.0.1:3030 (listening on all interfaces)");
     println!("Health Check: GET /health");
     println!("Status: GET /api/status");
     println!("Discover: GET /api/discover");
@@ -83,7 +108,9 @@ async fn main() {
     println!("Open http://127.0.0.1:8080 in browser");
     println!();
 
+    // Listen on all interfaces so the UI (served on a different local port
+    // or host) can reach the backend during development.
     warp::serve(routes)
-        .run(([127, 0, 0, 1], 3030))
+        .run(([0, 0, 0, 0], 3030))
         .await;
 }
